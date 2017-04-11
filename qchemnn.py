@@ -10,6 +10,9 @@ import tensorflow as tf
 import NN_Input_Handler as nn
 
 def read_and_decode_single_example(filename):
+    """
+    Decodes a single example from a .tfrecords file for training
+    """
     #filename queue, splits up data and keeps size down
     filename_queue = tf.train.string_input_producer([filename], 
                                                     num_epochs=None)
@@ -31,3 +34,22 @@ def read_and_decode_single_example(filename):
     
     #for now,
     return bc, e
+
+def simple_model():
+    """
+    A simple model using high level tf functions
+    """
+    bc, e = read_and_decode_single_example("ges.tfrecords")
+    #create batches
+    #TODO tweak values
+    bcs_batch, es_batch = tf.train.shuffle_batch(
+            [bc, e], 
+            batch_size=25,
+            capacity=2000,
+            min_after_dequeue=1000)
+    
+    sess = tf.Session()
+    init = tf.initialize_all_variables()
+    sess.run(init)
+    tf.train.start_queue_runners(sess=sess)
+    #es, bcs = sess.run([es_batch, bcs_batch])

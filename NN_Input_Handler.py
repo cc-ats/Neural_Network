@@ -26,7 +26,7 @@ COULOMB_DIMENSION = 23
 #TODO: Write to tf consistent format, test conversion for main program
 #TODO: implement tqdm for progress bars to keep track of data handling speeds
 
-#TODO: test
+#TODO: We may need to shuffle data here rather than later. Why? 
 def generateGeometryEnergyPairs():
     """
     Takes all the xyz files and all the energy calculations
@@ -40,14 +40,13 @@ def generateGeometryEnergyPairs():
     energy file.
     xyz file names MUST match the associated labels on each line of energy file
     """
-    #create ges, a list of tuples (binarized geometry, energy difference)
-    ges = []
     try:
         molecules = open("data/energy.txt", "r").readlines()
         
         #write each molecule into tfrecord for retrieval by the network
         writer = tf.python_io.TFRecordWriter("ges.tfrecords")
-        
+        #a second writer for testing file
+        testing_writer = tf.python_io.TFRecordWriter("testing.tfrecords")
         #loop through lines in energy.txt
         for molecule in molecules:
             m = molecule.split()
@@ -79,21 +78,11 @@ def generateGeometryEnergyPairs():
                 #use the proto object to serialize exaple to string
                 serialized = example.SerializeToString()
                 #write that to file
-                writer.write(serialized)
-                                        
-        #shuffle ges, so splitting data sets will be truly random
-        random.shuffle(ges)
-        
-        #TODO: Write to 3 files: training, validation, and testing
-        #maybe just training and validaiton for now
-        
-        
-        
-        #write the data to a file
-        with open( 'data/data.txt', 'w' ) as f:
-            np.set_printoptions(threshold=np.inf)
-            f.write('\n'.join('%s %s' % x for x in ges))
-            f.close()
+                if i == 0:
+                    testing_writer.write(serialized)
+                else:
+                    writer.write(serialized)
+                
     except FileNotFoundError:
         #might pass this error up later instead
         print("data folder or datafolder/energies.txt is missing")
