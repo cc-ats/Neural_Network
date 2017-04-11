@@ -11,7 +11,7 @@ QM-MM energy difference.
 @author: johnalberse
 """
 
-#import tensorFlow as tf
+import tensorflow as tf
 import numpy as np
 import math
 import glob
@@ -23,6 +23,8 @@ import random
 COULOMB_DIMENSION = 23
 
 #TODO: Make this file conform to python naming conventions and practices
+#TODO: Write to tf consistent format, test conversion for main program
+#TODO: implement tqdm for progress bars to keep track of data handling speeds
 
 #TODO: test
 def generateGeometryEnergyPairs():
@@ -42,11 +44,12 @@ def generateGeometryEnergyPairs():
     ges = []
     try:
         molecules = open("data/energy.txt", "r").readlines()
-        #using this to count num of molecules, so we can divide into datasets
-        numMolecules = 0
+        
+        #write each molecule into tfrecord for retrieval by the network
+        writer = tf.python_io.TFRecordWriter("ges.tfrecords")
+        
         #loop through lines in energy.txt
         for molecule in molecules:
-            numMolecules = numMolecules + 1
             m = molecule.split()
             # m[0] == xyz file name, m[1] == num atoms, m[2] == MM, m[3] == QM
             #use first element of each line to find associated xyz file
@@ -55,13 +58,29 @@ def generateGeometryEnergyPairs():
             #Get the energy difference e = (QM - MM)
             e = float(m[3]) - float(m[2])
         
-            #generate 10 random matrices and append their binarized forms
+            #generate 10 random matrices and write binarized forms to file
             for i in range (0, 10):
                 rc = randomSort(c)
                 #note that we flatten binaries here
                 bc = binarizeMatrix(rc).flatten()
-                ges.append( (bc, e) )
-    
+                #bc is "feature", e is "label"
+                
+                #construct proto Example
+                example= tf.train.Example(
+                        #example contains a proto Features object
+                        features=tf.train.Features(
+                                #Fetures contains a proto map of string to Features
+                                feature={
+                                        'bc': tf.train.Feature(
+                                                float_list=tf.train.FloatList(value=bc)),
+                                        'e': tf.train.Feature(
+                                                float_list=tf.train.FloatList(value=[e]))
+                }))
+                #use the proto object to serialize exaple to string
+                serialized = example.SerializeToString()
+                #write that to file
+                writer.write(serialized)
+                                        
         #shuffle ges, so splitting data sets will be truly random
         random.shuffle(ges)
         
