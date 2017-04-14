@@ -23,6 +23,7 @@ import random
 COULOMB_DIMENSION = 23
 
 #TODO: Make this file conform to python naming conventions and practices
+#TODO: assemble energies_training, energies_testing, energies_validation
 #TODO: Write to tf consistent format, test conversion for main program
 #TODO: implement tqdm for progress bars to keep track of data handling speeds
 
@@ -41,6 +42,8 @@ def generateGeometryEnergyPairs():
     xyz file names MUST match the associated labels on each line of energy file
     """
     try:
+        #TODO: Depending on energies_training, energies_testing, energies_valid
+               #write to a different file
         molecules = open("data/energy.txt", "r").readlines()
         
         #write each molecule into tfrecord for retrieval by the network
@@ -373,6 +376,7 @@ def exampleChain(xyzFile):
         f.write(line)
     f2.close()
     np.set_printoptions(threshold=np.inf)
+    np.set_printoptions(linewidth=150)
     f.write('\n\n')
     c = coulombConstructor(xyzFile)
     f.write(np.array2string(c))
