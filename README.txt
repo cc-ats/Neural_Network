@@ -7,6 +7,13 @@ Output: Energy difference, QM-MM, where QM is the quantum mechanical calculation
 
 TODO:
 ASSEMBLE databases
+	GDB13 is extremely expensive to convert as a whole (way to big)
+	BUT we can represent parts as individual .smi pretty easily, 
+	and convert to xyz as needed. 
+	This would be best for testing and validation sets. For training set,
+	Converting up-front is probably best (currently in process)
+	
+	For now, test within pre-converted 10k
 CONSTRUCT the DNN
 TRAIN the DNN
 IMPLEMENT the network into the QCHEM package

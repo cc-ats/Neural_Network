@@ -13,6 +13,10 @@ import nn_input_handler as nni
 #TODO: Keep updated
 X_SIZE = 2645
 
+#TODO: Implement a model based on research paper to try to replicate results
+        #use GDB13
+
+
 def read_and_decode_single_example(filename):
     """
     Decodes a single example from a .tfrecords file for training
@@ -39,6 +43,10 @@ def read_and_decode_single_example(filename):
 
 #TODO: Assemble a larger database and test this
 def simple_model():
+    """
+    A simple model (input, output layer only) utlizing tensorflow high
+    level API
+    """
     try:
         # gets examples
         bc, e = read_and_decode_single_example("training.tfrecords")
