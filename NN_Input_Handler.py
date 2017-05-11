@@ -4,9 +4,9 @@
 Created on Mon Mar  6 10:19:17 2017
 
 Used to take a set of .xyz files and associated QCHEM energy calculations
-and convert them into usable inputs (binarized coulomb matrices) for a
-neural network, and to associate those inputs with the calculated 
-QM-MM energy difference.
+and convert them into usable inputs (binarized semi-random coulomb matrices)
+for neural network, and to associate those inputs with the calculated 
+QM energies. Generates tfrecords files
 
 @author: johnalberse
 """
@@ -17,104 +17,138 @@ import math
 import glob
 import periodictable as pt
 import random
+import os
 
+#TODO: implement tqdm for progress bars to keep track of data handling speeds
 
 #TODO: Set this when I finalize the data set and/or begin work on architecture
 COULOMB_DIMENSION = 23
 
-#TODO: Make this file conform to python naming conventions and practices
-#TODO: assemble energies_training, energies_testing, energies_validation
-#TODO: Write to tf consistent format, test conversion for main program
-#TODO: implement tqdm for progress bars to keep track of data handling speeds
-
-#TODO: We may need to shuffle data here rather than later. Why? 
-def generateGeometryEnergyPairs():
+#TODO: retest for new implementation once energies calculated/implemented
+def generate_geometry_energy_pairs():
     """
-    Takes all the xyz files and all the energy calculations
-    and generates a list of tuples
-        x = tuple[0] == binarized geometry
-        y = tuple[1] == calculated energy difference (QM - MM)
-    
-    This list will be split into training, validation, and testing sets later
-    
-    data should be a folder containing all xyz files and a single
-    energy file.
-    xyz file names MUST match the associated labels on each line of energy file
+    Generates coulomb energy pairs and writes in serialized tfrecords format
     """
     try:
-        #TODO: Depending on energies_training, energies_testing, energies_valid
-               #write to a different file
-        molecules = open("data/energy.txt", "r").readlines()
-        
-        #write each molecule into tfrecord for retrieval by the network
-        writer = tf.python_io.TFRecordWriter("ges.tfrecords")
-        #a second writer for testing file
-        testing_writer = tf.python_io.TFRecordWriter("testing.tfrecords")
-        #loop through lines in energy.txt
-        for molecule in molecules:
-            m = molecule.split()
-            # m[0] == xyz file name, m[1] == num atoms, m[2] == MM, m[3] == QM
-            #use first element of each line to find associated xyz file
-            #Construct coulomb matrix
-            c = coulombConstructor("data/" + m[0] + ".xyz")
-            #Get the energy difference e = (QM - MM)
-            e = float(m[3]) - float(m[2])
-        
-            #generate 10 random matrices and write binarized forms to file
-            for i in range (0, 10):
-                rc = randomSort(c)
-                #note that we flatten binaries here
-                bc = binarizeMatrix(rc).flatten()
-                #bc is "feature", e is "label"
+        #gets list of all the molecules from each data subset
+        training_molecules = []
+        for file in os.listdir("data/training"):
+            if file.endswith(".xyz"):
+                training_molecules.append("data/training/" + file)
+        validation_molecules = []
+        for file in os.listdir("data/validation"):
+            if file.endswith(".xyz"):
+                validation_molecules.append("data/validation/" + file)
+        testing_molecules = []
+        for file in os.listdir("data/testing"):
+            if file.endswith(".xyz"):
+                testing_molecules.append("data/testing/" + file)
                 
-                #construct proto Example
-                example= tf.train.Example(
-                        #example contains a proto Features object
-                        features=tf.train.Features(
-                                #Fetures contains a proto map of string to Features
-                                feature={
-                                        'bc': tf.train.Feature(
-                                                float_list=tf.train.FloatList(value=bc)),
-                                        'e': tf.train.Feature(
-                                                float_list=tf.train.FloatList(value=[e]))
-                }))
-                #use the proto object to serialize exaple to string
-                serialized = example.SerializeToString()
-                #write that to file
-                if i == 0:
-                    testing_writer.write(serialized)
-                else:
-                    writer.write(serialized)
-                
+        #Get energies (3-tuple) from premade file
+        #energies[0] = training_energies
+        #energies[1] = validation_energies
+        #energies[2] = testing_energies
+        energies = #TODO: Once calculations finish running, insert
+        
+        #associates energies and molecules, writes to tfrecords
+        write_to_files(training_molecules, energies[0],
+                       validation_molecules, energies[1],
+                       testing_molecules, energies[2])
+        
     except FileNotFoundError:
-        #might pass this error up later instead
-        print("data folder or datafolder/energies.txt is missing")
-        return None
+        print("data or energy calculations are missing from data folder")
+
+def write_to_files(training_molecules, training_energies,
+                   validation_molecules, validation_energies,
+                   testing_molecules, testing_energies):
+    """
+    Takes molecules and energies lists, and writes them to tfRecords file
+    for input into neural network
+    """
+    #writer for each input (for the neural network) file
+    training_writer = tf.python_io.TFRecordWriter("training.tfrecords")
+    testing_writer = tf.python_io.TFRecordWriter("testing.tfrecords")
+    validation_writer = tf.python_io.TFRecordWriter("validation.tfrecords")
     
-    #return ges
+    for molecule in training_molecules:
+        c = coulomb_constructor(molecule)
+        #TODO: pull associated energy e. Need indexing.
+        for i in range (0, 10):
+            rc = random_sort(c)
+            bc = binarize_matrix(rc)
+            example= tf.train.Example(
+                #example contains a proto Features object
+                features=tf.train.Features(
+                    #Features contains a proto map of string to Features
+                    feature={
+                            'bc': tf.train.Feature(
+                                    float_list=tf.train.FloatList(value=bc)),
+                             'e': tf.train.Feature(
+                                    float_list=tf.train.FloatList(value=[e]))
+                    }))
+                #use the proto object to serialize exaple to string
+            serialized = example.SerializeToString()
+            training_writer.write(serialized)
+    for molecule in validation_molecules:
+        c = coulomb_constructor(molecule)
+        #TODO: pull associated energy e. Need indexing.
+        for i in range (0, 10):
+            rc = random_sort(c)
+            bc = binarize_matrix(rc)
+            example= tf.train.Example(
+                #example contains a proto Features object
+                features=tf.train.Features(
+                    #Features contains a proto map of string to Features
+                    feature={
+                            'bc': tf.train.Feature(
+                                    float_list=tf.train.FloatList(value=bc)),
+                             'e': tf.train.Feature(
+                                    float_list=tf.train.FloatList(value=[e]))
+                    }))
+                #use the proto object to serialize exaple to string
+            serialized = example.SerializeToString()
+            validation_writer.write(serialized)
+    for molecule in testing_molecules:
+        c = coulomb_constructor(molecule)
+        #TODO: pull associated energy e. Need indexing.
+        for i in range (0, 10):
+            rc = random_sort(c)
+            bc = binarize_matrix(rc)
+            example= tf.train.Example(
+                #example contains a proto Features object
+                features=tf.train.Features(
+                    #Features contains a proto map of string to Features
+                    feature={
+                            'bc': tf.train.Feature(
+                                    float_list=tf.train.FloatList(value=bc)),
+                             'e': tf.train.Feature(
+                                    float_list=tf.train.FloatList(value=[e]))
+                    }))
+                #use the proto object to serialize exaple to string
+            serialized = example.SerializeToString()
+            testing_writer.write(serialized)
 
-
-def formatInput(xyzFile):
+def format_input(xyzFile):
     """
     Formats an xyzFile input into a suitable sensory input AT RUN TIME
     
     Gets 10 associated random coulomb matrices, averages them, and then
     binarizes them for input
     """
-    c = coulombConstructor(xyzFile)
+    c = coulomb_constructor(xyzFile)
     rcs = []
     for i in range(0, 10):
-        rcs.append(randomSort(c))
+        rcs.append(random_sort(c))
     rc = np.mean(np.array(rcs), axis=0)
     
-    nnInput = binarizeMatrix(rc)
+    nnInput = binarize_matrix(rc)
     
     return nnInput
         
 
 #TODO: Figure out units. Angstroms? Check QCHEM output files
 #TODO: Refactor as generateCoulombMatrix to keep with naming convention
-def coulombConstructor(xyzFile):
+def coulomb_constructor(xyzFile):
     """
     Based on Coulomb construction from
     "Learning Invariant Represntations of Molecules for Atomization
@@ -134,7 +168,7 @@ def coulombConstructor(xyzFile):
     d: the size of c, previously obtained through getCoulombDimension
     """
     # makes rz from the xyz file
-    rz = makeRZ(xyzFile)
+    rz = make_rz(xyzFile)
     r = rz[0]
     z = rz[1]
     
@@ -160,7 +194,7 @@ def coulombConstructor(xyzFile):
     return c
 
 
-def makeRZ(xyzFile):
+def make_rz(xyzFile):
     """
     xyzFile: file path to .xyz file, 
     Which contains the number of atoms on the first line,
@@ -207,8 +241,8 @@ def makeRZ(xyzFile):
     return (r, z)
 
 #TODO: We might be able to trim more constant inputs (i.e. top left 4x4?)
-#TODO: Check this is still best on final dataset. May be non-constant longer
-def binarizeMatrix(c):
+#TODO: RECHECK step/num of matrices EVERY TIME DATASET CHANGES. 
+def binarize_matrix(c):
     """
     'break apart each dimension of the Coulomb matrix C by converting the 
     representation into a three-dimensional tensor of essentially 
@@ -255,7 +289,7 @@ def binarizeMatrix(c):
     #returns the binary matrices
     return bc
 
-def randomSort(c):
+def random_sort(c):
     """
     Takes a coulumb matrix c and returns a ONE of its associated "random" 
     coulomb matrices
@@ -321,8 +355,8 @@ def randomSort(c):
     
 
 
-#TODO: Use this & manually set size once I decide on a data set
-def getCoulombDimension():
+#TODO: Use this & manually set size every time new dataset is chosen
+def get_coulomb_dimension():
     """
     This function takes a list of all the geometries in the input set and finds
     the one with the most atoms
@@ -344,13 +378,13 @@ def getCoulombDimension():
             max = currentSize
     return max
 
-def countEqualElements(ges):
+def count_equal_elements(ges):
     """
     Utility function. Lets us count the number of inputs in binarized matrices
     that are the same, to make sure there's actually enough difference to 
     allow the NN to work
     
-    Also counts the numbe of occurances of them
+    Also counts the number of occurances of them
     """
     cnts = []
     for j in range(0, len(ges)):
@@ -366,7 +400,7 @@ def countEqualElements(ges):
         occurances.append( (i, cnts.count(i)) )
     return occurances
 
-def exampleChain(xyzFile):
+def example_chain(xyzFile):
     """
     Prints all steps of getting an input to a file, for demonstration purposes
     """
@@ -378,12 +412,87 @@ def exampleChain(xyzFile):
     np.set_printoptions(threshold=np.inf)
     np.set_printoptions(linewidth=150)
     f.write('\n\n')
-    c = coulombConstructor(xyzFile)
+    c = coulomb_constructor(xyzFile)
     f.write(np.array2string(c))
     f.write('\n\n')
-    rc = randomSort(c)
+    rc = random_sort(c)
     f.write(np.array2string(rc))
     f.write('\n\n')
-    bc = binarizeMatrix(rc)
+    bc = binarize_matrix(rc)
     f.write(np.array2string(bc))
     f.close()
+
+"""
+def generate_geometry_energy_pairs():
+    ""
+    Takes all the xyz files and all the energy calculations
+    and generates 3 .tfrecords files for later decoding
+    ~10% of data -> testing dataset
+    ~10% of data -> validation dataset
+    ~80% of data -> training dataset
+    
+    
+    data should be a folder containing all xyz files and a single
+    energy file.
+    xyz file names MUST match the associated labels on each line of energy file
+    ""
+    try:
+        #TODO: Depending on energies_training, energies_testing, energies_valid
+               #write to a different file
+        molecules = open("data/energy.txt", "r").readlines()
+        
+        #write each molecule into tfrecord for retrieval by the network
+        writer = tf.python_io.TFRecordWriter("training.tfrecords")
+        #a second writer for testing file
+        testing_writer = tf.python_io.TFRecordWriter("testing.tfrecords")
+        #a thrid writer for the validation file
+        validation_writer = tf.python_io.TFRecordWriter("validation.tfrecords")
+        #loop through lines in energy.txt
+        for molecule in molecules:
+            m = molecule.split()
+            # m[0] == xyz file name, m[1] == num atoms, m[2] == MM, m[3] == QM
+            #use first element of each line to find associated xyz file
+            #Construct coulomb matrix
+            #TODO: Is this really the best way to do this?
+            c = coulomb_constructor("data/" + m[0] + ".xyz")
+            #Get the QM calculation
+            e = float(m[3])
+        
+            #generate 10 random matrices and write binarized forms to file
+            for i in range (0, 10):
+                rc = random_sort(c)
+                #note that we flatten binaries here
+                bc = binarize_matrix(rc).flatten()
+                #bc is "feature", e is "label"
+                
+                #construct proto Example
+                example= tf.train.Example(
+                        #example contains a proto Features object
+                        features=tf.train.Features(
+                                #Fetures contains a proto map of string to Features
+                                feature={
+                                        'bc': tf.train.Feature(
+                                                float_list=tf.train.FloatList(value=bc)),
+                                        'e': tf.train.Feature(
+                                                float_list=tf.train.FloatList(value=[e]))
+                }))
+                #use the proto object to serialize exaple to string
+                serialized = example.SerializeToString()
+                #write that to file
+                #10% of data goes to testing 10% to validation 80% to training
+                #TODO: Does dividing data in this way introduce a bias?
+                if i == 0:
+                    testing_writer.write(serialized)
+                elif i == 1:
+                    validation_writer.write(serialized)
+                else:
+                    writer.write(serialized)
+        writer.close
+        testing_writer.close
+        validation_writer.close
+                
+    except FileNotFoundError:
+        #might pass this error up later instead
+        print("data folder or datafolder/energies.txt is missing")
+        return None
+"""

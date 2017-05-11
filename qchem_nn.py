@@ -7,11 +7,10 @@ Created on Thu Apr  6 14:38:58 2017
 """
 import numpy as np
 import tensorflow as tf
-import nn_input_handler as nni
 
 #size of the input 
 #TODO: Keep updated
-X_SIZE = 2645
+INPUT_SIZE = 2645
 
 #TODO: Implement a model based on research paper to try to replicate results
         #use GDB13
@@ -33,7 +32,7 @@ def read_and_decode_single_example(filename):
             serialized_example,
             #here we tell it what features to pull
             features={
-                    'bc': tf.FixedLenFeature([X_SIZE], tf.float32),
+                    'bc': tf.FixedLenFeature([INPUT_SIZE], tf.float32),
                     'e': tf.FixedLenFeature([], tf.float32)
             })
     bc = features['bc']
@@ -59,7 +58,7 @@ def simple_model():
                 min_after_dequeue=500)
         
         #construct the model here
-        w = tf.get_variable('w1', [X_SIZE, 1])
+        w = tf.get_variable('w1', [INPUT_SIZE, 1])
         y_pred = tf.matmul(bcs_batch, w)
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_pred, es_batch)
         
@@ -80,8 +79,25 @@ def simple_model():
             print (loss_val)
         
     except FileNotFoundError:
-        print('training.tfrecords not found. Please assemble dataset using'
-              ' input handler')
+        print('file not found error')
     
-
+def model():
+    try:
+        #gets examples
+        bc, e = read_and_decode_single_example("training.tfrecords")
+        #create batches
+        #TODO: Tweak values, consider moving this/example gen to helper method
+        bcs_batch, es_batch = tf.train.shuffle_batch(
+                [bc, e], 
+                batch_size = 25,
+                capacity=1000,
+                min_after_dequeue=500)
+        
+        #TODO: construct the model
+        #[input size] -> 400 -> 100 -> 1 layer sizes
+        
+        # add final operation to rescale output
+        
+    except FileNotFoundError:
+        print('file note found error')
     
