@@ -7,8 +7,7 @@ Output: QM calculation. The result is a much quicker way of approximating the QM
 
 TODO:
 ASSEMBLE databases
-	GDB13 partially converted to .xyz (only 8.smi). These need to have QM calculations run on them. With this data we can attempt to train simple model.
-	We can also work to create a lot of water cluster data and calculate those
+	Run calculations for testing, validation data
 TRAIN simple model
 CONSTRUCT the DNN - Which will be better than the simple model :)
 TRAIN the DNN

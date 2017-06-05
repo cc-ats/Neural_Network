@@ -35,20 +35,22 @@ def generate_geometry_energy_pairs():
         for file in os.listdir("data/training"):
             if file.endswith(".xyz"):
                 training_molecules.append("data/training/" + file)
+        #same for validation
         validation_molecules = []
         for file in os.listdir("data/validation"):
             if file.endswith(".xyz"):
                 validation_molecules.append("data/validation/" + file)
+        #again, for testing
         testing_molecules = []
         for file in os.listdir("data/testing"):
             if file.endswith(".xyz"):
                 testing_molecules.append("data/testing/" + file)
-                
-        #Get energies (3-tuple) from premade file
-        #energies[0] = training_energies
-        #energies[1] = validation_energies
-        #energies[2] = testing_energies
-        energies = #TODO: Once calculations finish running, insert
+        
+        #these should be 1:1 pairs with molecule lists,
+        #i.e. any index i of each list should be information on the same mol
+        training_energies = #TODO: Once calculations finish running, insert
+        validation_energies = 
+        testing_energies = 
         
         #associates energies and molecules, writes to tfrecords
         write_to_files(training_molecules, energies[0],
@@ -57,6 +59,8 @@ def generate_geometry_energy_pairs():
         
     except FileNotFoundError:
         print("data or energy calculations are missing from data folder")
+        
+    return (training_energies, validation_energies, testing_energies)
 
 def write_to_files(training_molecules, training_energies,
                    validation_molecules, validation_energies,
@@ -421,78 +425,3 @@ def example_chain(xyzFile):
     bc = binarize_matrix(rc)
     f.write(np.array2string(bc))
     f.close()
-
-"""
-def generate_geometry_energy_pairs():
-    ""
-    Takes all the xyz files and all the energy calculations
-    and generates 3 .tfrecords files for later decoding
-    ~10% of data -> testing dataset
-    ~10% of data -> validation dataset
-    ~80% of data -> training dataset
-    
-    
-    data should be a folder containing all xyz files and a single
-    energy file.
-    xyz file names MUST match the associated labels on each line of energy file
-    ""
-    try:
-        #TODO: Depending on energies_training, energies_testing, energies_valid
-               #write to a different file
-        molecules = open("data/energy.txt", "r").readlines()
-        
-        #write each molecule into tfrecord for retrieval by the network
-        writer = tf.python_io.TFRecordWriter("training.tfrecords")
-        #a second writer for testing file
-        testing_writer = tf.python_io.TFRecordWriter("testing.tfrecords")
-        #a thrid writer for the validation file
-        validation_writer = tf.python_io.TFRecordWriter("validation.tfrecords")
-        #loop through lines in energy.txt
-        for molecule in molecules:
-            m = molecule.split()
-            # m[0] == xyz file name, m[1] == num atoms, m[2] == MM, m[3] == QM
-            #use first element of each line to find associated xyz file
-            #Construct coulomb matrix
-            #TODO: Is this really the best way to do this?
-            c = coulomb_constructor("data/" + m[0] + ".xyz")
-            #Get the QM calculation
-            e = float(m[3])
-        
-            #generate 10 random matrices and write binarized forms to file
-            for i in range (0, 10):
-                rc = random_sort(c)
-                #note that we flatten binaries here
-                bc = binarize_matrix(rc).flatten()
-                #bc is "feature", e is "label"
-                
-                #construct proto Example
-                example= tf.train.Example(
-                        #example contains a proto Features object
-                        features=tf.train.Features(
-                                #Fetures contains a proto map of string to Features
-                                feature={
-                                        'bc': tf.train.Feature(
-                                                float_list=tf.train.FloatList(value=bc)),
-                                        'e': tf.train.Feature(
-                                                float_list=tf.train.FloatList(value=[e]))
-                }))
-                #use the proto object to serialize exaple to string
-                serialized = example.SerializeToString()
-                #write that to file
-                #10% of data goes to testing 10% to validation 80% to training
-                #TODO: Does dividing data in this way introduce a bias?
-                if i == 0:
-                    testing_writer.write(serialized)
-                elif i == 1:
-                    validation_writer.write(serialized)
-                else:
-                    writer.write(serialized)
-        writer.close
-        testing_writer.close
-        validation_writer.close
-                
-    except FileNotFoundError:
-        #might pass this error up later instead
-        print("data folder or datafolder/energies.txt is missing")
-        return None
-"""
