@@ -8,6 +8,7 @@ Output: QM calculation. The result is a much quicker way of approximating the QM
 TODO:
 ASSEMBLE databases
 	Run calculations for testing, validation data
+	Assemble lists for data from calculations, such that lists are 1:1 w/ mol lists
 TRAIN simple model
 CONSTRUCT the DNN - Which will be better than the simple model :)
 TRAIN the DNN
