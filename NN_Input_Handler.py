@@ -30,32 +30,44 @@ def generate_geometry_energy_pairs():
     Generates coulomb energy pairs and writes in serialized tfrecords format
     """
     try:
-        #gets list of all the molecules from each data subset
-        training_molecules = []
-        for file in os.listdir("data/training"):
-            if file.endswith(".xyz"):
-                training_molecules.append("data/training/" + file)
-        #same for validation
-        validation_molecules = []
-        for file in os.listdir("data/validation"):
-            if file.endswith(".xyz"):
-                validation_molecules.append("data/validation/" + file)
-        #again, for testing
-        testing_molecules = []
-        for file in os.listdir("data/testing"):
-            if file.endswith(".xyz"):
-                testing_molecules.append("data/testing/" + file)
+        #For each dataset, go through associated energies file and append
+        #mol/energy to appropriate lists based on ID in energies file
+        #assigning in this way to each list assures 1:1 correlation
+        #for easy pairing later
         
-        #these should be 1:1 pairs with molecule lists,
-        #i.e. any index i of each list should be information on the same mol
-        training_energies = #TODO: Once calculations finish running, insert
-        validation_energies = 
-        testing_energies = 
+        #a list of files for each mol
+        training_molecules = []
+        #those mol's energies
+        training_energies = []
+        training_energies_file = 'data/training/energies.dat'
+        with open(training_energies_file, 'r') as f:
+            for line in f:
+                dat = line.split()
+                training_molecules.append('data/training/mol' + dat[0] + '.xyz')
+                training_energies.append(dat[1])
+        
+        validation_molecules = []
+        validation_energies = []
+        validation_energies_file = 'data/validation/energies.dat'
+        with open(validation_energies_file, 'r') as f:
+            for line in f:
+                dat = line.split()
+                validation_molecules.append('data/validation/mol' + dat[0] + '.xyz')
+                validation_energies.append(dat[1])
+        
+        testing_molecules = []
+        testing_energies = []
+        testing_energies_file = 'data/testing/energies.dat'
+        with open(testing_energies_file, 'r') as f:
+            for line in f:
+                dat = line.split()
+                testing_molecules.append('data/testing/mol' + dat[0] + '.xyz')
+                testing_energies.append(dat[1])
         
         #associates energies and molecules, writes to tfrecords
-        write_to_files(training_molecules, energies[0],
-                       validation_molecules, energies[1],
-                       testing_molecules, energies[2])
+        write_to_files(training_molecules, training_energies,
+                       validation_molecules, validation_energies,
+                       testing_molecules, testing_energies)
         
     except FileNotFoundError:
         print("data or energy calculations are missing from data folder")
@@ -74,63 +86,41 @@ def write_to_files(training_molecules, training_energies,
     testing_writer = tf.python_io.TFRecordWriter("testing.tfrecords")
     validation_writer = tf.python_io.TFRecordWriter("validation.tfrecords")
     
-    for molecule in training_molecules:
-        c = coulomb_constructor(molecule)
-        #TODO: pull associated energy e. Need indexing.
+    for i in range(len(training_molecules)):
+        c = coulomb_constructor(training_molecules[i])
         for i in range (0, 10):
-            rc = random_sort(c)
-            bc = binarize_matrix(rc)
-            example= tf.train.Example(
-                #example contains a proto Features object
-                features=tf.train.Features(
-                    #Features contains a proto map of string to Features
-                    feature={
-                            'bc': tf.train.Feature(
-                                    float_list=tf.train.FloatList(value=bc)),
-                             'e': tf.train.Feature(
-                                    float_list=tf.train.FloatList(value=[e]))
-                    }))
-                #use the proto object to serialize exaple to string
-            serialized = example.SerializeToString()
-            training_writer.write(serialized)
-    for molecule in validation_molecules:
-        c = coulomb_constructor(molecule)
-        #TODO: pull associated energy e. Need indexing.
+            training_writer.write(
+                    get_serialized_example(c, training_energies[i]))
+    for i in range(len(validation_molecules)):
+        c = coulomb_constructor(validation_molecules[i])
         for i in range (0, 10):
-            rc = random_sort(c)
-            bc = binarize_matrix(rc)
-            example= tf.train.Example(
-                #example contains a proto Features object
-                features=tf.train.Features(
-                    #Features contains a proto map of string to Features
-                    feature={
-                            'bc': tf.train.Feature(
-                                    float_list=tf.train.FloatList(value=bc)),
-                             'e': tf.train.Feature(
-                                    float_list=tf.train.FloatList(value=[e]))
-                    }))
-                #use the proto object to serialize exaple to string
-            serialized = example.SerializeToString()
-            validation_writer.write(serialized)
-    for molecule in testing_molecules:
-        c = coulomb_constructor(molecule)
-        #TODO: pull associated energy e. Need indexing.
+            validation_writer.write(
+                    get_serialized_example(c, validation_energies[i]))
+    
+    for i in range(len(testing_molecules)):
+        c = coulomb_constructor(testing_molecules[i])
         for i in range (0, 10):
-            rc = random_sort(c)
-            bc = binarize_matrix(rc)
-            example= tf.train.Example(
-                #example contains a proto Features object
-                features=tf.train.Features(
-                    #Features contains a proto map of string to Features
-                    feature={
-                            'bc': tf.train.Feature(
-                                    float_list=tf.train.FloatList(value=bc)),
-                             'e': tf.train.Feature(
-                                    float_list=tf.train.FloatList(value=[e]))
-                    }))
-                #use the proto object to serialize exaple to string
-            serialized = example.SerializeToString()
-            testing_writer.write(serialized)
+            testing_writer.write(
+                    get_serialized_example(c, testing_energies[i]))
+
+def get_serialized_example(c, e):
+    """
+    Returns a serialized example to write into the tfrecords file
+    """
+    rc = random_sort(c)
+    bc = binarize_matrix(rc)
+    example= tf.train.Example(
+        #example contains a proto Features object
+        features=tf.train.Features(
+            #Features contains a proto map of string to Features
+            feature={
+                    'bc': tf.train.Feature(
+                            float_list=tf.train.FloatList(value=bc)),
+                    'e': tf.train.Feature(
+                            float_list=tf.train.FloatList(value=[e]))
+            }))
+    #use the proto object to serialize exaple to string
+    return example.SerializeToString()
 
 def format_input(xyzFile):
     """
