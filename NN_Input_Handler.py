@@ -19,8 +19,6 @@ import periodictable as pt
 import random
 import os
 
-#TODO: implement tqdm for progress bars to keep track of data handling speeds
-
 #TODO: Set this when I finalize the data set and/or begin work on architecture
 COULOMB_DIMENSION = 23
 
@@ -236,17 +234,18 @@ def make_rz(xyzFile):
 
 #TODO: We might be able to trim more constant inputs (i.e. top left 4x4?)
 #TODO: RECHECK step/num of matrices EVERY TIME DATASET CHANGES. 
+#TODO: Changing this should be one of the first steps in improving network
 def binarize_matrix(c):
     """
     'break apart each dimension of the Coulomb matrix C by converting the 
     representation into a three-dimensional tensor of essentially 
     binary predicates'
     
-    This is similar to image binarization, or thresholding.
-    
     Based on work in Machine Learning Group TU Berlin's
     "Learning invariant representations of molecules for
     atomization energy prediction"
+    
+    Also incorporates ideas from image thresholding
     """
     #step. choose to keep tractable
     theta = 1
@@ -254,32 +253,18 @@ def binarize_matrix(c):
     thetaMatrix = np.full([COULOMB_DIMENSION, COULOMB_DIMENSION], theta)
     x = []
     #change range to get more/less inputs
-    #-5 to 0 was chosen because after that, each dimension of the binary
-    #tensor tends to become identical to the previous dimension
-    #i.e. i = 1, 2, 3... are just 23x23 matrices of 1s
-    #i < -5 are relatively constant matrices of both 1s and 0s,
-    #likely because the numbers associated with the 1s are too large to be
-    # effected by the step within a reasonable number of steps
-    #in theory, going further into negatives until we get all 0s would be more
-    # accurate, however this is an intractable number of inputs.
-    #       if we want to do this, increase step size.
+    #-5 to 0 chosen because outside of this range each dimension of the matrix
+    #remains relatively constant
     for i in range(-5, 0):
         x.append(np.tanh(np.divide(np.add(c, i * thetaMatrix), thetaMatrix)))
     #convert x into a numpy array for calculations
     npx = np.array(x).flatten()
     
-    #NOTE: below isn't explicitly called for in Berlin's paper, but a practice 
-    #borrowed from image thresholding. 
-    # Not sure it will work best for this purpose.
-    #TODO: If really can't train NN well, reexamine this
-    
-    #x now has values ranging from -1 to 1. 
-    #split on a threshold T, where a = 0 if a < T, a = 1 if a >= T
+    #thresholding
     T = 0
     bcB = npx >= T
     bc = bcB.astype(int)
 
-    
     #returns the binary matrices
     return bc
 
