@@ -18,6 +18,7 @@ import glob
 import periodictable as pt
 import random
 import os
+import random as rd
 
 #TODO: Set this when I finalize the data set and/or begin work on architecture
 COULOMB_DIMENSION = 23
@@ -37,29 +38,35 @@ def generate_geometry_energy_pairs():
         training_molecules = []
         #those mol's energies
         training_energies = []
-        training_energies_file = 'data/training/energies.dat'
+        training_energies_file = 
+                        'data/gdb_subset/training/training_energies.dat'
         with open(training_energies_file, 'r') as f:
             for line in f:
                 dat = line.split()
-                training_molecules.append('data/training/mol' + dat[0] + '.xyz')
+                training_molecules.append(
+                        'data/gdb_subset/training/mol' + dat[0] + '.xyz')
                 training_energies.append(dat[1])
         
         validation_molecules = []
         validation_energies = []
-        validation_energies_file = 'data/validation/energies.dat'
+        validation_energies_file = 
+                        'data/gdb_subset/validation/validation_energies.dat'
         with open(validation_energies_file, 'r') as f:
             for line in f:
                 dat = line.split()
-                validation_molecules.append('data/validation/mol' + dat[0] + '.xyz')
+                validation_molecules.append(
+                        'data/gdb_subset/validation/mol' + dat[0] + '.xyz')
                 validation_energies.append(dat[1])
         
         testing_molecules = []
         testing_energies = []
-        testing_energies_file = 'data/testing/energies.dat'
+        testing_energies_file = 
+                        'data/gdb_subset/testing/testing_energies.dat'
         with open(testing_energies_file, 'r') as f:
             for line in f:
                 dat = line.split()
-                testing_molecules.append('data/testing/mol' + dat[0] + '.xyz')
+                testing_molecules.append(
+                        'data/gdb_subset/testing/mol' + dat[0] + '.xyz')
                 testing_energies.append(dat[1])
         
         #associates energies and molecules, writes to tfrecords
@@ -400,3 +407,31 @@ def example_chain(xyzFile):
     bc = binarize_matrix(rc)
     f.write(np.array2string(bc))
     f.close()
+    
+def split_training():
+    """
+    writing for myself to split training data easily since we didn't
+    run calculations for testing or validation sets
+    """
+    trainingWriter = open ('training_writer', 'w')
+    testingWriter = open ('testing_writer', 'w')
+    validationWriter = open ('validation_writer', 'w')
+    
+    energiesFile = open ('data/gdb_subset/training/energies.dat', 'r')
+    for line in energiesFile.readlines():
+        molId = line.split()[0]
+        mol = ('data/gdb_subset/training/mol' + molId + '.xyz')
+        rand = rd.random()
+        if rand < .1:
+            testingWriter.write(line)
+            os.rename(mol, 'data/gdb_subset/testing/mol' + molId + '.xyz')
+        elif rand < .2:
+            validationWriter.write(line)
+            os.rename(mol, 'data/gdb_subset/validation/mol' + molId + '.xyz')
+        else:
+            trainingWriter.write(line)
+    trainingWriter.close()
+    testingWriter.close()
+    validationWriter.close()
+    energiesFile.close()
+            
