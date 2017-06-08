@@ -8,7 +8,7 @@ Created on Thu Apr  6 14:38:58 2017
 import numpy as np
 import tensorflow as tf
 
-#size of the input 
+#size of the input - max mol size^2 * number of steps in binarization
 #TODO: Keep updated
 INPUT_SIZE = 2645
 
@@ -60,7 +60,8 @@ def simple_model():
         #construct the model here
         w = tf.get_variable('w1', [INPUT_SIZE, 1])
         y_pred = tf.matmul(bcs_batch, w)
-        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_pred, es_batch)
+        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                labels = y_pred, logits = es_batch)
         
         #monitoring
         loss_mean = tf.reduce_mean(loss)

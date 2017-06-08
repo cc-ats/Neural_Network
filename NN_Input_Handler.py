@@ -38,36 +38,33 @@ def generate_geometry_energy_pairs():
         training_molecules = []
         #those mol's energies
         training_energies = []
-        training_energies_file = 
-                        'data/gdb_subset/training/training_energies.dat'
+        training_energies_file = 'data/gdb_subset/training/training_energies'
         with open(training_energies_file, 'r') as f:
             for line in f:
                 dat = line.split()
                 training_molecules.append(
                         'data/gdb_subset/training/mol' + dat[0] + '.xyz')
-                training_energies.append(dat[1])
+                training_energies.append(float(dat[1]))
         
         validation_molecules = []
         validation_energies = []
-        validation_energies_file = 
-                        'data/gdb_subset/validation/validation_energies.dat'
+        validation_energies_file = 'data/gdb_subset/validation/validation_energies'
         with open(validation_energies_file, 'r') as f:
             for line in f:
                 dat = line.split()
                 validation_molecules.append(
                         'data/gdb_subset/validation/mol' + dat[0] + '.xyz')
-                validation_energies.append(dat[1])
+                validation_energies.append(float(dat[1]))
         
         testing_molecules = []
         testing_energies = []
-        testing_energies_file = 
-                        'data/gdb_subset/testing/testing_energies.dat'
+        testing_energies_file = 'data/gdb_subset/testing/testing_energies'
         with open(testing_energies_file, 'r') as f:
             for line in f:
                 dat = line.split()
                 testing_molecules.append(
                         'data/gdb_subset/testing/mol' + dat[0] + '.xyz')
-                testing_energies.append(dat[1])
+                testing_energies.append(float(dat[1]))
         
         #associates energies and molecules, writes to tfrecords
         write_to_files(training_molecules, training_energies,
@@ -76,8 +73,6 @@ def generate_geometry_energy_pairs():
         
     except FileNotFoundError:
         print("data or energy calculations are missing from data folder")
-        
-    return (training_energies, validation_energies, testing_energies)
 
 def write_to_files(training_molecules, training_energies,
                    validation_molecules, validation_energies,
@@ -92,18 +87,18 @@ def write_to_files(training_molecules, training_energies,
     validation_writer = tf.python_io.TFRecordWriter("validation.tfrecords")
     
     for i in range(len(training_molecules)):
-        c = coulomb_constructor(training_molecules[i])
+        c = generateCoulombMatrix(training_molecules[i])
         for i in range (0, 10):
             training_writer.write(
                     get_serialized_example(c, training_energies[i]))
     for i in range(len(validation_molecules)):
-        c = coulomb_constructor(validation_molecules[i])
+        c = generateCoulombMatrix(validation_molecules[i])
         for i in range (0, 10):
             validation_writer.write(
                     get_serialized_example(c, validation_energies[i]))
     
     for i in range(len(testing_molecules)):
-        c = coulomb_constructor(testing_molecules[i])
+        c = generateCoulombMatrix(testing_molecules[i])
         for i in range (0, 10):
             testing_writer.write(
                     get_serialized_example(c, testing_energies[i]))
@@ -111,6 +106,8 @@ def write_to_files(training_molecules, training_energies,
 def get_serialized_example(c, e):
     """
     Returns a serialized example to write into the tfrecords file
+    
+    Includes conversion into random binzarized rank 1 matrix
     """
     rc = random_sort(c)
     bc = binarize_matrix(rc)
@@ -134,7 +131,7 @@ def format_input(xyzFile):
     Gets 10 associated random coulomb matrices, averages them, and then
     binarizes them for input
     """
-    c = coulomb_constructor(xyzFile)
+    c = generateCoulombMatrix(xyzFile)
     rcs = []
     for i in range(0, 10):
         rcs.append(random_sort(c))
@@ -143,11 +140,10 @@ def format_input(xyzFile):
     nnInput = binarize_matrix(rc)
     
     return nnInput
-        
 
 #TODO: Figure out units. Angstroms? Check QCHEM output files
 #TODO: Refactor as generateCoulombMatrix to keep with naming convention
-def coulomb_constructor(xyzFile):
+def generateCoulombMatrix(xyzFile):
     """
     Based on Coulomb construction from
     "Learning Invariant Represntations of Molecules for Atomization
@@ -398,7 +394,7 @@ def example_chain(xyzFile):
     np.set_printoptions(threshold=np.inf)
     np.set_printoptions(linewidth=150)
     f.write('\n\n')
-    c = coulomb_constructor(xyzFile)
+    c = generateCoulombMatrix(xyzFile)
     f.write(np.array2string(c))
     f.write('\n\n')
     rc = random_sort(c)
