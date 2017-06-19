@@ -5,15 +5,110 @@ Created on Thu Apr  6 14:38:58 2017
 
 @author: johnalberse
 """
-import numpy as np
 import tensorflow as tf
 
-#size of the input - max mol size^2 * number of steps in binarization
 #TODO: Keep updated
+#Size of input
 INPUT_SIZE = 2645
 
-#TODO: Implement a model based on research paper to try to replicate results
-        #use GDB13
+#parameters
+learning_rate = .001
+epochs = 20
+batch_size = 25
+display_step = 1
+#total number of mols in training set. Keep updated if change data.
+n_training_items = 7945
+
+#network architecture
+n_hidden_1 = 400 #number of features in first hidden layer
+n_hidden_2 = 100 #number of features in second hidden layer
+n_output = 1 #number of features in output layer (will be rescaled)
+
+#tf graph input - sets up input laayer and final layer
+x = tf.placeholder('float', [None, INPUT_SIZE])
+y = tf.placeholder('float', [None, 1])
+
+#stores values for weights, bias, including initial values
+weights = {
+        'w1' : tf.Variable(tf.random_normal([INPUT_SIZE, n_hidden_1])),
+        'w2' : tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),
+        'out' : tf.Variable(tf.random_normal([n_hidden_2, n_output])),
+        'rescale_weight' : tf.Variable(initial_value=-1185.)
+}
+biases = {
+        'b1' : tf.Variable(tf.random_normal([n_hidden_1])),
+        'b2' : tf.Variable(tf.random_normal([n_hidden_2])),
+        'out' : tf.Variable(tf.random_normal([n_output])),
+        'rescale_bias' : tf.Variable(initial_value=-301.)
+}
+
+def model(x, weights, biases):
+    """
+    The model, returns the ouput layer
+    """
+    #Hidden layer 1
+    hidden_1 = tf.sigmoid(tf.add(tf.matmul (x, weights['w1']), biases['b1']))
+    #Hidden layer 2
+    hidden_2 = tf.sigmoid(tf.add(tf.matmul(hidden_1, weights['w2']), 
+                                             biases['b2']))
+    #Output layer
+    out_layer = tf.sigmoid(tf.add(tf.matmul(hidden_2, weights['out']), 
+                                              biases['out']))
+    #rescale output to be actual energy
+    rescaled_out_layer = tf.add(tf.multiply(out_layer, 
+                                            weights['rescale_weight']),
+                                            biases['rescale_bias'])
+    return rescaled_out_layer
+
+
+#TODO: Utilize validation, testing data
+def train_model():
+    """
+    Trains the model
+    """
+    try:
+        #gets examples
+        bc, e = read_and_decode_single_example("training.tfrecords")
+        #create batches
+        bcs_batch, es_batch = tf.train.shuffle_batch(
+                [bc, e], 
+                batch_size = batch_size,
+                capacity=1000,
+                min_after_dequeue=500)
+        
+        #construct model
+        pred = model(x, weights, biases)
+        
+        #define how we will reduce the cost function
+        #for now, using existing optimizer
+        cost = tf.reduce_mean(
+                tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
+        optimizer = tf.train.AdamOptimizer(
+                learning_rate=learning_rate).minimize(cost)
+        
+        #number of epochs to train on
+        n_epochs = 10
+        
+        #TODO: Launch graph and run model
+        #TODO: Add dropout
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            
+            for epoch in range(n_epochs):
+                epoch_loss = 0
+                for _ in range(int(n_training_items/batch_size)):
+                    _, c = sess.run([optimizer, cost], feed_dict={
+                                    x: bcs_batch.eval(),
+                                    y: es_batch.eval()})
+                    epoch_loss += c
+                print('Epoch', epoch, 'completed out of', n_epochs, 'loss:',
+                      epoch_loss)
+        
+        #TODO: Test accuracy with testing, validation
+        
+    except FileNotFoundError:
+        print('file note found error')
+
 
 
 def read_and_decode_single_example(filename):
@@ -24,7 +119,6 @@ def read_and_decode_single_example(filename):
     filename_queue = tf.train.string_input_producer([filename], 
                                                     num_epochs=None)
     reader = tf.TFRecordReader()
-    #note that _ refers to the previous symbol
     #reader converts back into actual example
     #will go to the next file in the queue if necessary
     _, serialized_example = reader.read(filename_queue)
@@ -39,66 +133,4 @@ def read_and_decode_single_example(filename):
     e = features['e']
     #input == bc, label == e
     return bc, e
-
-#TODO: Assemble a larger database and test this
-def simple_model():
-    """
-    A simple model (input, output layer only) utlizing tensorflow high
-    level API
-    """
-    try:
-        # gets examples
-        bc, e = read_and_decode_single_example("training.tfrecords")
-        # create batches
-        #TODO: Tweak values
-        bcs_batch, es_batch = tf.train.shuffle_batch(
-                [bc, e], 
-                batch_size = 25,
-                capacity=1000,
-                min_after_dequeue=500)
-        
-        #construct the model here
-        w = tf.get_variable('w1', [INPUT_SIZE, 1])
-        y_pred = tf.matmul(bcs_batch, w)
-        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels = y_pred, logits = es_batch)
-        
-        #monitoring
-        loss_mean = tf.reduce_mean(loss)
-        
-        #use predefined training algorithm
-        train_op = tf.rain.AdamOptimizer().minimize(loss)
-        
-        #tell TensorFlow to set itself up to evaluate the model
-        sess = tf.Session()
-        init = tf.initialize_all_variables()
-        sess.run(init)
-        tf.train.start_queue_runners(sess=sess)
-        
-        while True:
-            _, loss_val = sess.run([train_op, loss_mean])
-            print (loss_val)
-        
-    except FileNotFoundError:
-        print('file not found error')
-    
-def model():
-    try:
-        #gets examples
-        bc, e = read_and_decode_single_example("training.tfrecords")
-        #create batches
-        #TODO: Tweak values, consider moving this/example gen to helper method
-        bcs_batch, es_batch = tf.train.shuffle_batch(
-                [bc, e], 
-                batch_size = 25,
-                capacity=1000,
-                min_after_dequeue=500)
-        
-        #TODO: construct the model
-        #[input size] -> 400 -> 100 -> 1 layer sizes
-        
-        # add final operation to rescale output
-        
-    except FileNotFoundError:
-        print('file note found error')
     

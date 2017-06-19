@@ -23,8 +23,10 @@ import random as rd
 #TODO: Set this when I finalize the data set and/or begin work on architecture
 COULOMB_DIMENSION = 23
 
-#TODO: retest for new implementation once energies calculated/implemented
-def generate_geometry_energy_pairs():
+#TODO: Test accuracy
+#TODO: Figure out why tfrecords files so large. If not able to makes smaller,
+#then how to store on github
+def generate_tfrecords():
     """
     Generates coulomb energy pairs and writes in serialized tfrecords format
     """
@@ -44,7 +46,7 @@ def generate_geometry_energy_pairs():
                 dat = line.split()
                 training_molecules.append(
                         'data/gdb_subset/training/mol' + dat[0] + '.xyz')
-                training_energies.append(float(dat[1]))
+                training_energies.append([float(dat[1])])
         
         validation_molecules = []
         validation_energies = []
@@ -54,8 +56,7 @@ def generate_geometry_energy_pairs():
                 dat = line.split()
                 validation_molecules.append(
                         'data/gdb_subset/validation/mol' + dat[0] + '.xyz')
-                validation_energies.append(float(dat[1]))
-        
+                validation_energies.append([float(dat[1])])
         testing_molecules = []
         testing_energies = []
         testing_energies_file = 'data/gdb_subset/testing/testing_energies'
@@ -64,7 +65,7 @@ def generate_geometry_energy_pairs():
                 dat = line.split()
                 testing_molecules.append(
                         'data/gdb_subset/testing/mol' + dat[0] + '.xyz')
-                testing_energies.append(float(dat[1]))
+                testing_energies.append([float(dat[1])])
         
         #associates energies and molecules, writes to tfrecords
         write_to_files(training_molecules, training_energies,
@@ -96,7 +97,6 @@ def write_to_files(training_molecules, training_energies,
         for i in range (0, 10):
             validation_writer.write(
                     get_serialized_example(c, validation_energies[i]))
-    
     for i in range(len(testing_molecules)):
         c = generateCoulombMatrix(testing_molecules[i])
         for i in range (0, 10):
@@ -119,7 +119,7 @@ def get_serialized_example(c, e):
                     'bc': tf.train.Feature(
                             float_list=tf.train.FloatList(value=bc)),
                     'e': tf.train.Feature(
-                            float_list=tf.train.FloatList(value=[e]))
+                            float_list=tf.train.FloatList(value=e))
             }))
     #use the proto object to serialize exaple to string
     return example.SerializeToString()
@@ -142,7 +142,6 @@ def format_input(xyzFile):
     return nnInput
 
 #TODO: Figure out units. Angstroms? Check QCHEM output files
-#TODO: Refactor as generateCoulombMatrix to keep with naming convention
 def generateCoulombMatrix(xyzFile):
     """
     Based on Coulomb construction from
@@ -430,4 +429,22 @@ def split_training():
     testingWriter.close()
     validationWriter.close()
     energiesFile.close()
-            
+
+
+def find_scalar():
+    """
+    Finds the scalar by which to multiply output of NN.
+    
+    Even if end up allowing network to generate the actual scalar by training,
+    this is a good idea for how to initialize weight, bias
+    """
+    f = open ("data/gdb_subset/energies.dat", "r")
+    minimum = 9999999999999.
+    maximum = -9999999999999.
+    for line in f.readlines():
+        l = line.split()
+        if float(l[1]) < minimum:
+            minimum = float(l[1])
+        elif float(l[1]) > maximum:
+            maximum = float(l[1])
+    return [maximum, minimum]
