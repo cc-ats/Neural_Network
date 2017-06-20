@@ -73,16 +73,34 @@ def train_model():
         bcs_batch, es_batch = tf.train.shuffle_batch(
                 [bc, e], 
                 batch_size = batch_size,
-                capacity=1000,
-                min_after_dequeue=500)
+                capacity = 1000,  #change to 8000? check
+                min_after_dequeu = 500)
         
-        #construct model
-        pred = model(x, weights, biases)
+        #do the same for training, validation for later accuracy checks
+        bc_validation, e_validation = read_and_decode_single_example(
+                'validation.tfrecords')
+        bc_testing, e_testing = read_and_decode_single_example(
+                'testing.tfrecords')
+        bcs_validation_batch, es_validation_batch = tf.train.shuffle_batch(
+                [bc_validation, e_validation],
+                batch_size = batch_size,
+                capacity = 1000,
+                min_after_dequeu = 500)
+        bcs_testing_batch, es_testing_batch = tf.train.shuffle_batch(
+                [bc_testing, e_testing],
+                batch_size = batch_size,
+                capacity = 1000,
+                min_after_dequeu = 500)
+        
+        
+        #construct training model
+        training_model = model(x, weights, biases)
         
         #define how we will reduce the cost function
         #for now, using existing optimizer
         cost = tf.reduce_mean(
-                tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
+                tf.nn.softmax_cross_entropy_with_logits(logits=training_model,
+                                                        labels=y))
         optimizer = tf.train.AdamOptimizer(
                 learning_rate=learning_rate).minimize(cost)
         
@@ -94,31 +112,47 @@ def train_model():
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             
-            for epoch in range(n_epochs):
+            for i in range(n_epochs):
                 epoch_loss = 0
+                #go through all training samples, batch_size at a time
                 for _ in range(int(n_training_items/batch_size)):
                     _, c = sess.run([optimizer, cost], feed_dict={
                                     x: bcs_batch.eval(),
                                     y: es_batch.eval()})
                     epoch_loss += c
-                print('Epoch', epoch, 'completed out of', n_epochs, 'loss:',
+                    #TODO: Remove this print, just testing stuff
+                    print('... batch done!') 
+                #prints evaluations of model at end of each epoch
+                print('Epoch', i, 'completed out of', n_epochs, 'loss:',
                       epoch_loss)
-        
-        #TODO: Call accuracy fn here
+                print('Avg % error, validation: ' + 
+                      compute_accuracy(sess, 
+                                       bcs_validation_batch, 
+                                       es_validation_batch,
+                                       weights,
+                                       biases))
+            
+            #TODO: Save graph information for use in tensorboard.
+            # (Although, saving current state of variables may be enough
+            #  to simply evaluate on our own program if we want since
+            #  we can just reconstruct the model easily)
         
     except FileNotFoundError:
         print('file note found error')
 
-def compute_accuracy():
+def compute_accuracy(sess, bcs_batch, es_batch, weights, biases):
     """
-    This should compute and print accuracy of model using
-    validation and testing datasets
-    """
-    #define testing, validation models
-    validation_model = model(x, weights, biases)
-    testing_model = model(x, weights, biases)
+    This should compute and return accuracy (in form of avg % error over batch
+    of model
     
-    #run over the data and compute average % error from actual
+    args:
+        sess: the session the model is trained in
+        bcs_batch, es_batch: the data to be tested
+        weights: the weights
+        biases: the biases
+    """
+    
+    #TODO: This
     
 
 def read_and_decode_single_example(filename):
