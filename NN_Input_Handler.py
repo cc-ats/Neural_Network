@@ -17,15 +17,11 @@ import math
 import glob
 import periodictable as pt
 import random
-import os
-import random as rd
 
 #TODO: Set this when I finalize the data set and/or begin work on architecture
 COULOMB_DIMENSION = 23
 
-#TODO: Test accuracy
-#TODO: Figure out why tfrecords files so large. If not able to makes smaller,
-#then how to store on github
+#TODO: Test that these features are generated and recorded correctly
 def generate_tfrecords():
     """
     Generates coulomb energy pairs and writes in serialized tfrecords format
@@ -102,6 +98,10 @@ def write_to_files(training_molecules, training_energies,
         for i in range (0, 10):
             testing_writer.write(
                     get_serialized_example(c, testing_energies[i]))
+            
+    training_writer.close()
+    testing_writer.close()
+    validation_writer.close()
 
 def get_serialized_example(c, e):
     """
@@ -403,34 +403,33 @@ def example_chain(xyzFile):
     f.write(np.array2string(bc))
     f.close()
     
-def split_training():
+def create_energies_files():
     """
-    writing for myself to split training data easily since we didn't
-    run calculations for testing or validation sets
+    Splits up the energies.dat file based on what molecules are in directories
     """
-    trainingWriter = open ('training_writer', 'w')
-    testingWriter = open ('testing_writer', 'w')
-    validationWriter = open ('validation_writer', 'w')
+    training_mols = glob.glob('data/gdb_subset/training/*.xyz')
+    validation_mols = glob.glob('data/gdb_subset/validation/*.xyz')
+    testing_mols = glob.glob('data/gdb_subset/testing/*.xyz')
+    training_energies_writer = open ('data/gdb_subset/training/training_energies', 'w')
+    validation_energies_writer = open ('data/gdb_subset/validation/validation_energies', 'w')
+    testing_energies_writer = open ('data/gdb_subset/testing/testing_energies', 'w')
+    with open ('data/gdb_subset/energies.dat', 'r') as all_energies:
+        for line in all_energies:
+            line_contents = line.split()
+            if any('data/gdb_subset/training/mol' + line_contents[0] + 
+                   '.xyz' == s for s in training_mols):
+                training_energies_writer.write(line)
+            if any('data/gdb_subset/validation/mol' + line_contents[0] + 
+                   '.xyz' == s for s in validation_mols):
+                validation_energies_writer.write(line)
+            if any('data/gdb_subset/testing/mol' + line_contents[0] + 
+                   '.xyz' == s for s in testing_mols):
+                testing_energies_writer.write(line)
+    training_energies_writer.close()
+    validation_energies_writer.close()
+    testing_energies_writer.close()
     
-    energiesFile = open ('data/gdb_subset/training/energies.dat', 'r')
-    for line in energiesFile.readlines():
-        molId = line.split()[0]
-        mol = ('data/gdb_subset/training/mol' + molId + '.xyz')
-        rand = rd.random()
-        if rand < .1:
-            testingWriter.write(line)
-            os.rename(mol, 'data/gdb_subset/testing/mol' + molId + '.xyz')
-        elif rand < .2:
-            validationWriter.write(line)
-            os.rename(mol, 'data/gdb_subset/validation/mol' + molId + '.xyz')
-        else:
-            trainingWriter.write(line)
-    trainingWriter.close()
-    testingWriter.close()
-    validationWriter.close()
-    energiesFile.close()
-
-
+    
 def find_scalar():
     """
     Finds the scalar by which to multiply output of NN.

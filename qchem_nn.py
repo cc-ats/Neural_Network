@@ -17,7 +17,7 @@ epochs = 20
 batch_size = 25
 display_step = 1
 #total number of mols in training set. Keep updated if change data.
-n_training_items = 7945
+n_training_items = 8000
 
 #network architecture
 n_hidden_1 = 400 #number of features in first hidden layer
@@ -104,12 +104,22 @@ def train_model():
                 print('Epoch', epoch, 'completed out of', n_epochs, 'loss:',
                       epoch_loss)
         
-        #TODO: Test accuracy with testing, validation
+        #TODO: Call accuracy fn here
         
     except FileNotFoundError:
         print('file note found error')
 
-
+def compute_accuracy():
+    """
+    This should compute and print accuracy of model using
+    validation and testing datasets
+    """
+    #define testing, validation models
+    validation_model = model(x, weights, biases)
+    testing_model = model(x, weights, biases)
+    
+    #run over the data and compute average % error from actual
+    
 
 def read_and_decode_single_example(filename):
     """
