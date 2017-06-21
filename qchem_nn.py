@@ -75,8 +75,8 @@ def train_model():
         bcs_batch, es_batch = tf.train.shuffle_batch(
                 [bc, e], 
                 batch_size = batch_size,
-                capacity = 1000,  #change to 8000? check
-                min_after_dequeu = 500)
+                capacity = 1000, 
+                min_after_dequeue = 500)
         
         #do the same for training, validation for later accuracy checks
         bc_validation, e_validation = read_and_decode_single_example(
@@ -87,12 +87,12 @@ def train_model():
                 [bc_validation, e_validation],
                 batch_size = batch_size,
                 capacity = 1000,
-                min_after_dequeu = 500)
+                min_after_dequeue = 500)
         bcs_testing_batch, es_testing_batch = tf.train.shuffle_batch(
                 [bc_testing, e_testing],
                 batch_size = batch_size,
                 capacity = 1000,
-                min_after_dequeu = 500)
+                min_after_dequeue = 500)
         
         
         #construct training model
