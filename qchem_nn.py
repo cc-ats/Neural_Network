@@ -42,6 +42,8 @@ biases = {
         'rescale_bias' : tf.Variable(initial_value=-301.)
 }
 
+#TODO: A function which lets us make predictions with the model (use it)
+
 def model(x, weights, biases):
     """
     The model, returns the ouput layer
@@ -107,6 +109,8 @@ def train_model():
         #number of epochs to train on
         n_epochs = 10
         
+        saver = tf.train.Saver()
+        
         #TODO: Launch graph and run model
         #TODO: Add dropout
         with tf.Session() as sess:
@@ -121,7 +125,7 @@ def train_model():
                                     y: es_batch.eval()})
                     epoch_loss += c
                     #TODO: Remove this print, just testing stuff
-                    print('... batch done!') 
+                    print('... batch done! Current loss on epoch: '+epoch_loss) 
                 #prints evaluations of model at end of each epoch
                 print('Epoch', i, 'completed out of', n_epochs, 'loss:',
                       epoch_loss)
@@ -131,11 +135,11 @@ def train_model():
                                        es_validation_batch,
                                        weights,
                                        biases))
-            
-            #TODO: Save graph information for use in tensorboard.
-            # (Although, saving current state of variables may be enough
-            #  to simply evaluate on our own program if we want since
-            #  we can just reconstruct the model easily)
+                save_path = saver.save(sess, 'checkpoints/model.ckpt')
+                print('Model saved in file: %s' % save_path)
+                
+            #TODO: Evaluate the model over testing, validation batch
+            #      using compute_accuracy
         
     except FileNotFoundError:
         print('file note found error')
@@ -153,6 +157,7 @@ def compute_accuracy(sess, bcs_batch, es_batch, weights, biases):
     """
     
     #TODO: This
+    
     
 
 def read_and_decode_single_example(filename):
