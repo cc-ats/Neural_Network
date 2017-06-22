@@ -12,7 +12,7 @@ import tensorflow as tf
 INPUT_SIZE = 2645
 
 #parameters
-learning_rate = .001
+learning_rate = .0001
 epochs = 20
 batch_size = 25
 display_step = 1
@@ -99,14 +99,13 @@ def train_model():
         #construct training model
         training_model = model(x, weights, biases)
         
-        #define how we will reduce the cost function
-        #for now, using existing optimizer
-        cost = tf.losses.mean_squared_error(y, training_model)
-        optimizer = tf.train.AdamOptimizer(
-                learning_rate=learning_rate).minimize(cost)
+        #Define the cost function and how we will reduce it
+        #Reducing mean squared error for now
+        cost = tf.reduce_mean(tf.squared_difference(es_batch, training_model))
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost)
         
         #number of epochs to train on
-        n_epochs = 10
+        n_epochs = 3000
         
         saver = tf.train.Saver()
         
@@ -125,7 +124,7 @@ def train_model():
                                     y: es_batch.eval()})
                     epoch_loss += c
                 #prints evaluations of model at end of each epoch
-                print('Epoch', i, 'completed out of', n_epochs, 'loss:',
+                print('Epoch', i+1, 'completed out of', n_epochs, 'loss:',
                       epoch_loss)
                 #print('Avg % error, validation: ' +
                 #      compute_accuracy(sess, 
@@ -139,8 +138,6 @@ def train_model():
             coord.request_stop()
             coord.join(threads)
             
-            #TODO: Evaluate the model over testing, validation batch
-            #      using compute_accuracy
         
     except FileNotFoundError:
         print('file note found error')
