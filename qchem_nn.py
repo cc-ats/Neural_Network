@@ -25,8 +25,9 @@ n_hidden_2 = 100 #number of features in second hidden layer
 n_output = 1 #number of features in output layer (will be rescaled)
 
 #tf graph input - sets up input laayer and final layer
-x = tf.placeholder('float', [None, INPUT_SIZE])
-y = tf.placeholder('float', [None, 1])
+# Note that "None" allows us to feed an arbitrary batch size
+x = tf.placeholder(dtype=tf.float32, shape=[None, INPUT_SIZE])
+y = tf.placeholder(dtype=tf.float32, shape=[None, 1])
 
 #stores values for weights, bias, including initial values
 weights = {
@@ -100,9 +101,7 @@ def train_model():
         
         #define how we will reduce the cost function
         #for now, using existing optimizer
-        cost = tf.reduce_mean(
-                tf.nn.softmax_cross_entropy_with_logits(logits=training_model,
-                                                        labels=y))
+        cost = tf.losses.mean_squared_error(y, training_model)
         optimizer = tf.train.AdamOptimizer(
                 learning_rate=learning_rate).minimize(cost)
         
@@ -115,7 +114,8 @@ def train_model():
         #TODO: Add dropout
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for i in range(n_epochs):
                 epoch_loss = 0
                 #go through all training samples, batch_size at a time
@@ -124,20 +124,21 @@ def train_model():
                                     x: bcs_batch.eval(),
                                     y: es_batch.eval()})
                     epoch_loss += c
-                    #TODO: Remove this print, just testing stuff
-                    print('... batch done! Current loss on epoch: '+epoch_loss) 
                 #prints evaluations of model at end of each epoch
                 print('Epoch', i, 'completed out of', n_epochs, 'loss:',
                       epoch_loss)
-                print('Avg % error, validation: ' + 
-                      compute_accuracy(sess, 
-                                       bcs_validation_batch, 
-                                       es_validation_batch,
-                                       weights,
-                                       biases))
+                #print('Avg % error, validation: ' +
+                #      compute_accuracy(sess, 
+                #                       bcs_validation_batch, 
+                #                       es_validation_batch,
+                #                       weights,
+                #                       biases))
                 save_path = saver.save(sess, 'checkpoints/model.ckpt')
                 print('Model saved in file: %s' % save_path)
-                
+            
+            coord.request_stop()
+            coord.join(threads)
+            
             #TODO: Evaluate the model over testing, validation batch
             #      using compute_accuracy
         
@@ -176,10 +177,10 @@ def read_and_decode_single_example(filename):
             #here we tell it what features to pull
             features={
                     'bc': tf.FixedLenFeature([INPUT_SIZE], tf.float32),
-                    'e': tf.FixedLenFeature([], tf.float32)
+                    'e': tf.FixedLenFeature([1], tf.float32)
             })
-    bc = features['bc']
-    e = features['e']
-    #input == bc, label == e
+    #Note we're using float, not int, because of later multiplication
+    bc = tf.cast(features['bc'], tf.float32)
+    e = tf.cast(features['e'], tf.float32)
     return bc, e
     
