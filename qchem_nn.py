@@ -6,6 +6,7 @@ Created on Thu Apr  6 14:38:58 2017
 @author: johnalberse
 """
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 #TODO: Keep updated
 #Size of input
@@ -30,6 +31,7 @@ x = tf.placeholder(dtype=tf.float32, shape=[None, INPUT_SIZE])
 y = tf.placeholder(dtype=tf.float32, shape=[None, 1])
 
 #stores values for weights, bias, including initial values
+# TODO experiment with rescale values as variables vs immutable
 weights = {
         'w1' : tf.Variable(tf.random_normal([INPUT_SIZE, n_hidden_1])),
         'w2' : tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),
@@ -47,15 +49,15 @@ biases = {
 
 def model(x, weights, biases):
     """
-    The model, returns the ouput layer
+    Basic model using tanh activation function
     """
     #Hidden layer 1
-    hidden_1 = tf.sigmoid(tf.add(tf.matmul (x, weights['w1']), biases['b1']))
+    hidden_1 = tf.tanh(tf.add(tf.matmul (x, weights['w1']), biases['b1']))
     #Hidden layer 2
-    hidden_2 = tf.sigmoid(tf.add(tf.matmul(hidden_1, weights['w2']), 
+    hidden_2 = tf.tanh(tf.add(tf.matmul(hidden_1, weights['w2']), 
                                              biases['b2']))
     #Output layer
-    out_layer = tf.sigmoid(tf.add(tf.matmul(hidden_2, weights['out']), 
+    out_layer = tf.tanh(tf.add(tf.matmul(hidden_2, weights['out']), 
                                               biases['out']))
     #rescale output to be actual energy
     rescaled_out_layer = tf.add(tf.multiply(out_layer, 
@@ -110,6 +112,7 @@ def train_model():
         saver = tf.train.Saver()
         
         #TODO: Launch graph and run model
+        #TODO: Add early stopping
         #TODO: Add dropout
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
@@ -117,15 +120,17 @@ def train_model():
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for i in range(n_epochs):
                 epoch_loss = 0
+                costs_list = []
                 #go through all training samples, batch_size at a time
                 for _ in range(int(n_training_items/batch_size)):
                     _, c = sess.run([optimizer, cost], feed_dict={
                                     x: bcs_batch.eval(),
                                     y: es_batch.eval()})
                     epoch_loss += c
+                costs_list.append(epoch_loss)
                 #prints evaluations of model at end of each epoch
-                print('Epoch', i+1, 'completed out of', n_epochs, 'loss:',
-                      epoch_loss)
+                print('Epoch', i+1, 'completed out of', n_epochs,
+                      'epoch loss:', epoch_loss)
                 #print('Avg % error, validation: ' +
                 #      compute_accuracy(sess, 
                 #                       bcs_validation_batch, 
@@ -134,7 +139,8 @@ def train_model():
                 #                       biases))
                 save_path = saver.save(sess, 'checkpoints/model.ckpt')
                 print('Model saved in file: %s' % save_path)
-            
+            #shows graph of epoch loss over time
+            plt.plot(costs_list)
             coord.request_stop()
             coord.join(threads)
             

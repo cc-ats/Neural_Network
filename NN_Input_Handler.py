@@ -79,9 +79,10 @@ def write_to_files(training_molecules, training_energies,
     for input into neural network
     """
     #writer for each input (for the neural network) file
-    training_writer = tf.python_io.TFRecordWriter("training.tfrecords")
-    testing_writer = tf.python_io.TFRecordWriter("testing.tfrecords")
-    validation_writer = tf.python_io.TFRecordWriter("validation.tfrecords")
+    # TODO: CHANGE back to regular file name, -2, just replacing rn
+    training_writer = tf.python_io.TFRecordWriter("training2.tfrecords")
+    testing_writer = tf.python_io.TFRecordWriter("testing2.tfrecords")
+    validation_writer = tf.python_io.TFRecordWriter("validation2.tfrecords")
     
     for i in range(len(training_molecules)):
         c = generateCoulombMatrix(training_molecules[i])
