@@ -19,6 +19,8 @@ batch_size = 25
 display_step = 1
 #total number of mols in training set. Keep updated if change data.
 n_training_items = 8000
+#number of molecules in testing and validation (not combined, invdividually)
+n_test_and_valid_items = 1000
 
 #network architecture
 n_hidden_1 = 400 #number of features in first hidden layer
@@ -49,7 +51,11 @@ biases = {
 
 def model(x, weights, biases):
     """
-    Basic model using tanh activation function
+    Basic model using tanh activation function. Note that weights, biases are
+    passed; this may be useful in the future if different weight, bias
+    initial values are desired.
+    
+    x: input, geometry of a single molecule
     """
     #Hidden layer 1
     hidden_1 = tf.tanh(tf.add(tf.matmul (x, weights['w1']), biases['b1']))
@@ -65,8 +71,6 @@ def model(x, weights, biases):
                                             biases['rescale_bias'])
     return rescaled_out_layer
 
-
-#TODO: Utilize validation, testing data
 def train_model():
     """
     Trains the model
@@ -82,20 +86,21 @@ def train_model():
                 min_after_dequeue = 500)
         
         #do the same for training, validation for later accuracy checks
-        bc_validation, e_validation = read_and_decode_single_example(
-                'validation.tfrecords')
-        bc_testing, e_testing = read_and_decode_single_example(
-                'testing.tfrecords')
-        bcs_validation_batch, es_validation_batch = tf.train.shuffle_batch(
-                [bc_validation, e_validation],
-                batch_size = batch_size,
-                capacity = 1000,
-                min_after_dequeue = 500)
-        bcs_testing_batch, es_testing_batch = tf.train.shuffle_batch(
-                [bc_testing, e_testing],
-                batch_size = batch_size,
-                capacity = 1000,
-                min_after_dequeue = 500)
+        #TODO: Delete this block if filename method, single example works
+        #bc_validation, e_validation = read_and_decode_single_example(
+        #        'validation.tfrecords')
+        #bcs_validation_batch, es_validation_batch = tf.train.shuffle_batch(
+        #        [bc_validation, e_validation],
+        #        batch_size = batch_size,
+        #        capacity = 1000,
+        #        min_after_dequeue = 500)
+        #bc_testing, e_testing = read_and_decode_single_example(
+        #        'testing.tfrecords')
+        #bcs_testing_batch, es_testing_batch = tf.train.shuffle_batch(
+        #        [bc_testing, e_testing],
+        #        batch_size = batch_size,
+        #        capacity = 1000,
+        #        min_after_dequeue = 500)
         
         
         #construct training model
@@ -112,35 +117,41 @@ def train_model():
         saver = tf.train.Saver()
         
         #TODO: Launch graph and run model
-        #TODO: Add early stopping
+        #TODO: Add early stopping once validation tested
         #TODO: Add dropout
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for i in range(n_epochs):
+                # Each pass through this loop is ONE epoch
                 epoch_loss = 0
-                costs_list = []
+                accuracy_over_time = []
                 #go through all training samples, batch_size at a time
                 for _ in range(int(n_training_items/batch_size)):
+                    #Each pass through this loop is one batch
                     _, c = sess.run([optimizer, cost], feed_dict={
                                     x: bcs_batch.eval(),
                                     y: es_batch.eval()})
                     epoch_loss += c
-                costs_list.append(epoch_loss)
-                #prints evaluations of model at end of each epoch
+                    
+                #prints epoch loss after each epoch, estimating performance
                 print('Epoch', i+1, 'completed out of', n_epochs,
                       'epoch loss:', epoch_loss)
-                #print('Avg % error, validation: ' +
-                #      compute_accuracy(sess, 
-                #                       bcs_validation_batch, 
-                #                       es_validation_batch,
-                #                       weights,
-                #                       biases))
+                
+                #Obtain and append accuracy over whole validation set
+                accuracy_over_time.append(compute_accuracy(sess, 
+                                                    'validation.tfrecords'))
+                
+                #TODO: Using accuracy list, determine if early stop necessary
+                
                 save_path = saver.save(sess, 'checkpoints/model.ckpt')
                 print('Model saved in file: %s' % save_path)
-            #shows graph of epoch loss over time
-            plt.plot(costs_list)
+            #shows graph of accuracy over time on validation set
+            plt.plot(accuracy_over_time)
+            
+            #TODO: Utilize testing data here
+            
             coord.request_stop()
             coord.join(threads)
             
@@ -148,20 +159,28 @@ def train_model():
     except FileNotFoundError:
         print('file note found error')
 
-def compute_accuracy(sess, bcs_batch, es_batch, weights, biases):
+
+#TODO: Implement this with batches; would be faster. But since these sets small
+# and infrequent, this solution should do for now.
+def compute_accuracy(sess, filename):
     """
     This should compute and return accuracy (in form of avg % error over batch
-    of model
+    of model over the entirity of the data in a tfrecord file
+    
+    Used ONLY for testing and validation sets, which must be of the same length
     
     args:
         sess: the session the model is trained in
-        bcs_batch, es_batch: the data to be tested
-        weights: the weights
-        biases: the biases
+        filename: the tfrecord to calculate accuracy over
     """
-    
-    #TODO: This
-    
+    #loop over each example
+    for _ in range (n_test_and_valid_items):
+        #obtain real geometry and energy
+        bc_real, e_real = read_and_decode_single_example(filename)
+        #queue should make this just grab the next example
+        #TODO: run the model with this geometry, find estimated energy
+        #Compare the two find percent error add percent error to total for avg
+    #return average percent error
     
 
 def read_and_decode_single_example(filename):
