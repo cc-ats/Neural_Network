@@ -7,6 +7,7 @@ Created on Thu Apr  6 14:38:58 2017
 """
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import math
 
 #TODO: Keep updated
 #Size of input
@@ -85,24 +86,6 @@ def train_model():
                 capacity = 1000, 
                 min_after_dequeue = 500)
         
-        #do the same for training, validation for later accuracy checks
-        #TODO: Delete this block if filename method, single example works
-        #bc_validation, e_validation = read_and_decode_single_example(
-        #        'validation.tfrecords')
-        #bcs_validation_batch, es_validation_batch = tf.train.shuffle_batch(
-        #        [bc_validation, e_validation],
-        #        batch_size = batch_size,
-        #        capacity = 1000,
-        #        min_after_dequeue = 500)
-        #bc_testing, e_testing = read_and_decode_single_example(
-        #        'testing.tfrecords')
-        #bcs_testing_batch, es_testing_batch = tf.train.shuffle_batch(
-        #        [bc_testing, e_testing],
-        #        batch_size = batch_size,
-        #        capacity = 1000,
-        #        min_after_dequeue = 500)
-        
-        
         #construct training model
         training_model = model(x, weights, biases)
         
@@ -116,41 +99,45 @@ def train_model():
         
         saver = tf.train.Saver()
         
-        #TODO: Launch graph and run model
         #TODO: Add early stopping once validation tested
         #TODO: Add dropout
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+            is_improving = True
             for i in range(n_epochs):
-                # Each pass through this loop is ONE epoch
-                epoch_loss = 0
-                accuracy_over_time = []
-                #go through all training samples, batch_size at a time
-                for _ in range(int(n_training_items/batch_size)):
-                    #Each pass through this loop is one batch
-                    _, c = sess.run([optimizer, cost], feed_dict={
-                                    x: bcs_batch.eval(),
-                                    y: es_batch.eval()})
-                    epoch_loss += c
+                if (is_improving == True):
+                    # Each pass through this loop is ONE epoch
+                    epoch_loss = 0
+                    accuracy_over_time = []
+                    #Within for loop is 1 epoch
+                    for j in range(int(n_training_items/batch_size)):
+                        #Each pass through this loop is one batch
+                        _, c = sess.run([optimizer, cost], feed_dict={
+                                        x: bcs_batch.eval(),
+                                        y: es_batch.eval()})
+                        epoch_loss += c
+                    #End of epoch operations below
                     
-                #prints epoch loss after each epoch, estimating performance
-                print('Epoch', i+1, 'completed out of', n_epochs,
-                      'epoch loss:', epoch_loss)
-                
-                #Obtain and append accuracy over whole validation set
-                accuracy_over_time.append(compute_accuracy(sess, 
-                                                    'validation.tfrecords'))
-                
-                #TODO: Using accuracy list, determine if early stop necessary
-                
-                save_path = saver.save(sess, 'checkpoints/model.ckpt')
-                print('Model saved in file: %s' % save_path)
+                    #prints epoch loss after each epoch
+                    print('Epoch', i+1, 'completed out of', n_epochs,
+                          'epoch loss:', epoch_loss)
+                    
+                    #Obtain and append accuracy over whole validation set
+                    accuracy_over_time.append(compute_accuracy(sess, 
+                                                     'validation.tfrecords'))
+                    #early stopping implementation
+                    is_improving = is_improving(10, accuracy_over_time)
+                    
             #shows graph of accuracy over time on validation set
             plt.plot(accuracy_over_time)
             
+            save_path = saver.save(sess, 'checkpoints/model.ckpt')
+            print('Model saved in file: %s' % save_path)
+            
             #TODO: Utilize testing data here
+            #TODO: Graph training, validation, and testing together
             
             coord.request_stop()
             coord.join(threads)
@@ -159,9 +146,31 @@ def train_model():
     except FileNotFoundError:
         print('file note found error')
 
+def is_improving(patience, accuracy_over_time, epoch_num):
+    """
+    Checks if the network has improved in most recent window
+    of length patience
+    
+    patience: Number of most recent accuracies to check
+    accuracy_over_time: list of all accuracies
+    epoch_num: number of epochs completed
+    """
+    if ( epoch_num > patience):
+        first_acc = accuracy_over_time[-patience]
+        for j in range (patience, 0, -1):
+            if (accuracy_over_time[-j] > first_acc):
+                #there is improvement, continue training
+                break
+            elif (j == 1):
+                #No accuracy was higher than the first
+                #network has stopped improving, stop training
+                return False
+        #is improving in patience window
+        return True
+    #Hasn't reached patience threshold yet
+    return True
 
-#TODO: Implement this with batches; would be faster. But since these sets small
-# and infrequent, this solution should do for now.
+#TODO: Implement accuracy computations in batches. Unnacceptably slow ATM.
 def compute_accuracy(sess, filename):
     """
     This should compute and return accuracy (in form of avg % error over batch
@@ -174,13 +183,18 @@ def compute_accuracy(sess, filename):
         filename: the tfrecord to calculate accuracy over
     """
     #loop over each example
+    total_percent_error = 0.0
     for _ in range (n_test_and_valid_items):
         #obtain real geometry and energy
-        bc_real, e_real = read_and_decode_single_example(filename)
         #queue should make this just grab the next example
-        #TODO: run the model with this geometry, find estimated energy
+        bc, e_real = read_and_decode_single_example(filename)
+        #run the model with this geometry, find estimated energy
+        #note bc is in a list to increase its shape by 1
+        e_estimate = sess.run(model([bc], weights, biases))
         #Compare the two find percent error add percent error to total for avg
+        total_percent_error += math.fabs((e_estimate - e_real) / e_real)
     #return average percent error
+    return total_percent_error / n_test_and_valid_items
     
 
 def read_and_decode_single_example(filename):
